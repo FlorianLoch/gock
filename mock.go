@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import (
 	"net/http"
@@ -99,7 +99,7 @@ func (m *Mocker) Done() bool {
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	return !m.request.Persisted && m.request.Counter == 0
+	return !m.request.Persisted && m.request.Counter <= 0
 }
 
 // Request returns the Request instance
@@ -117,7 +117,9 @@ func (m *Mocker) Response() *Response {
 // Match matches the given http.Request with the current Request
 // mock expectation, returning true if matches.
 func (m *Mocker) Match(req *http.Request) (bool, error) {
-	if m.disabler.isDisabled() {
+	// Done covers both an explicit Disable and an exhausted counter, so a
+	// mock registered with Times(0) can never match.
+	if m.Done() {
 		return false, nil
 	}
 
@@ -166,7 +168,7 @@ func (m *Mocker) decrement() {
 	defer m.mutex.Unlock()
 
 	m.request.Counter--
-	if m.request.Counter == 0 {
+	if m.request.Counter <= 0 {
 		m.disabler.Disable()
 	}
 }

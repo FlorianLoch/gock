@@ -1,8 +1,8 @@
-package gock
+package pgock
 
-// Options represents customized option for gock
+// Options carries per-request matching options.
 type Options struct {
-	// DisableRegexpHost stores if the host is only a plain string rather than regular expression,
-	// if DisableRegexpHost is true, host sets in gock.New(...) will be treated as plain string
+	// DisableRegexpHost, when true, treats the host passed to (*Transport).New
+	// as a plain string rather than a regular expression.
 	DisableRegexpHost bool
 }

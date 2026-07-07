@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import (
 	"net/http"
@@ -8,7 +8,6 @@ import (
 )
 
 func TestNewMock(t *testing.T) {
-	defer after()
 
 	req := NewRequest()
 	res := NewResponse()
@@ -23,7 +22,6 @@ func TestNewMock(t *testing.T) {
 }
 
 func TestMockDisable(t *testing.T) {
-	defer after()
 
 	req := NewRequest()
 	res := NewResponse()
@@ -39,7 +37,6 @@ func TestMockDisable(t *testing.T) {
 }
 
 func TestMockDone(t *testing.T) {
-	defer after()
 
 	req := NewRequest()
 	res := NewResponse()
@@ -65,7 +62,6 @@ func TestMockDone(t *testing.T) {
 }
 
 func TestMockSetMatcher(t *testing.T) {
-	defer after()
 
 	req := NewRequest()
 	res := NewResponse()
@@ -87,7 +83,6 @@ func TestMockSetMatcher(t *testing.T) {
 }
 
 func TestMockAddMatcher(t *testing.T) {
-	defer after()
 
 	req := NewRequest()
 	res := NewResponse()
@@ -109,7 +104,6 @@ func TestMockAddMatcher(t *testing.T) {
 }
 
 func TestMockMatch(t *testing.T) {
-	defer after()
 
 	req := NewRequest()
 	res := NewResponse()

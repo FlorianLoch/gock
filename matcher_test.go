@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import (
 	"net/http"
@@ -141,14 +141,16 @@ func TestMatchMock(t *testing.T) {
 		return req.URL.Path == "/baz" || req.URL.Path == "/bar", nil
 	})
 
+	g := NewTransport()
+	defer g.Off()
 	for _, test := range cases {
-		Flush()
-		mock := New(test.url).method(test.method, "").Mock
+		g.Flush()
+		mock := g.New(test.url).method(test.method, "").Mock
 
 		u, _ := url.Parse(test.url)
 		req := &http.Request{Method: test.method, URL: u}
 
-		match, err := MatchMock(req)
+		match, err := g.MatchMock(req)
 		st.Expect(t, err, nil)
 		if test.matches {
 			st.Expect(t, match, mock)

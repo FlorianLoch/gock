@@ -1,380 +1,147 @@
-# gock [![GitHub release](https://img.shields.io/badge/version-v1.0-orange.svg?style=flat)](https://github.com/h2non/gock/releases) [![GoDoc](https://godoc.org/github.com/h2non/gock?status.svg)](https://godoc.org/github.com/h2non/gock) [![Coverage Status](https://coveralls.io/repos/github/h2non/gock/badge.svg?branch=master)](https://coveralls.io/github/h2non/gock?branch=master) [![Go Report Card](https://img.shields.io/badge/go_report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/h2non/gock) [![license](https://img.shields.io/badge/license-MIT-blue.svg)]()
+# pgock
 
-Versatile HTTP mocking made easy in [Go](https://golang.org) that works with any `net/http` based stdlib implementation.
+Versatile HTTP mocking made easy in [Go](https://golang.org), built for parallel tests. Works with anything that uses `net/http`.
 
-Heavily inspired by [nock](https://github.com/node-nock/nock).
-There is also its Python port, [pook](https://github.com/h2non/pook).
+`pgock` is a fork of [gock](https://github.com/h2non/gock) reworked around a self-contained `*Transport`: there is no package-level state and nothing mutates `http.DefaultTransport`, so every test owns its mocks and can run under `t.Parallel()` without interfering with others.
 
-To get started, take a look to the [examples](#examples).
+Heavily inspired by [nock](https://github.com/node-nock/nock); there is also a Python port, [pook](https://github.com/h2non/pook).
 
 ## Features
 
-- Simple, expressive, fluent API.
-- Semantic API DSL for declarative HTTP mock declarations.
-- Built-in helpers for easy JSON/XML mocking.
-- Supports persistent and volatile TTL-limited mocks.
-- Full regular expressions capable HTTP request mock matching.
-- Designed for both testing and runtime scenarios.
-- Match request by method, URL params, headers and bodies.
-- Extensible and pluggable HTTP matching rules.
-- Ability to switch between mock and real networking modes.
-- Ability to filter/map HTTP requests for accurate mock matching.
-- Supports map and filters to handle mocks easily.
-- Wide compatible HTTP interceptor using `http.RoundTripper` interface.
-- Works with any `net/http` compatible client, such as [gentleman](https://github.com/h2non/gentleman).
-- Network timeout/cancelation delay simulation.
-- Extensible and hackable API.
-- Dependency free.
+- Fluent, declarative DSL for HTTP mock definitions.
+- **Instance-based, no global state — safe for `t.Parallel()`.**
+- Match on method, URL, query params, headers, and body, with full regex support.
+- Built-in helpers for JSON/XML matching and replies.
+- Persistent mocks and counted (TTL) mocks.
+- Switch between mock-only and partial real-networking modes.
+- Map/filter intercepted requests for fine-grained matching.
+- Standard `http.RoundTripper` integration — drop into any `net/http`-compatible client.
+- Simulate response delay and context cancellation.
+- Lightweight: a single small runtime dependency (`github.com/h2non/parth`).
 
 ## Installation
 
 ```bash
-go get -u github.com/h2non/gock
+go get github.com/exaring/pgock
 ```
 
-## API
+## Getting started
 
-See [godoc reference](https://godoc.org/github.com/h2non/gock) for detailed API documentation.
-
-## How it mocks
-
-1. Intercepts any HTTP outgoing request via `http.DefaultTransport` or custom `http.Transport` used by any `http.Client`.
-2. Matches outgoing HTTP requests against a pool of defined HTTP mock expectations in FIFO declaration order.
-3. If at least one mock matches, it will be used in order to compose the mock HTTP response.
-4. If no mock can be matched, it will resolve the request with an error, unless real networking mode is enable, in which case a real HTTP request will be performed.
-
-## Tips
-
-#### Testing
-
-Declare your mocks before you start declaring the concrete test logic:
+A representative test:
 
 ```go
-func TestFoo(t *testing.T) {
-  defer gock.Off() // Flush pending mocks after test execution
-
-  gock.New("http://server.com").
-    Get("/bar").
-    Reply(200).
-    JSON(map[string]string{"foo": "bar"})
-
-  // Your test code starts here...
-}
-```
-
-#### Race conditions
-
-If you're running concurrent code, be aware that your mocks are declared first to avoid unexpected
-race conditions while configuring `gock` or intercepting custom HTTP clients.
-
-`gock` is not fully thread-safe, but sensible parts are.
-Any help making `gock` more reliable in this sense is appreciated.
-
-#### Define complex mocks first
-
-If you're mocking a bunch of mocks in the same test suite, it's recommended to define the more
-concrete mocks first, and then the generic ones.
-
-This approach usually avoids matching unexpected generic mocks (e.g: specific header, body payload...) instead of the generic ones that performs less complex matches.
-
-#### Disable `gock` traffic interception once done
-
-In other to minimize potential side effects within your test code, it's a good practice
-disabling `gock` once you are done with your HTTP testing logic.
-
-A Go idiomatic approach for doing this can be using it in a `defer` statement, such as:
-
-```go
-func TestGock (t *testing.T) {
-	defer gock.Off()
-
-	// ... my test code goes here
-}
-```
-
-#### Intercept an `http.Client` just once
-
-You don't need to intercept multiple times the same `http.Client` instance.
-
-Just call `gock.InterceptClient(client)` once, typically at the beginning of your test scenarios.
-
-#### Restore an `http.Client` after interception
-
-**NOTE**: this is not required is you are using `http.DefaultClient` or `http.DefaultTransport`.
-
-As a good testing pattern, you should call `gock.RestoreClient(client)` after running your test scenario, typically as after clean up hook.
-
-You can also use a `defer` statement for doing it, as you do with `gock.Off()`, such as:
-
-```go
-func TestGock (t *testing.T) {
-	defer gock.Off()
-	defer gock.RestoreClient(client)
-
-	// ... my test code goes here
-}
-```
-
-## Examples
-
-See [examples](https://github.com/h2non/gock/tree/master/_examples) directory for more featured use cases.
-
-#### Simple mocking via tests
-
-```go
-package test
+package mypkg_test
 
 import (
-  "io/ioutil"
-  "net/http"
-  "testing"
+    "encoding/json"
+    "net/http"
+    "testing"
 
-  "github.com/nbio/st"
-  "github.com/h2non/gock"
+    "github.com/exaring/pgock"
 )
 
-func TestSimple(t *testing.T) {
-  defer gock.Off()
+func TestFetchUser(t *testing.T) {
+    // 1. Each test owns its own mock transport. No package-level state is touched,
+    //    so t.Parallel() and concurrent tests are safe.
+    g := pgock.NewTransport()
 
-  gock.New("http://foo.com").
-    Get("/bar").
-    Reply(200).
-    JSON(map[string]string{"foo": "bar"})
+    // 2. Off() flushes registered mocks and switches the transport off: any
+    //    late request through it fails with pgock.ErrTransportDisabled rather
+    //    than silently reaching the real network. Always pair NewTransport()
+    //    with a deferred Off().
+    defer g.Off()
 
-  res, err := http.Get("http://foo.com/bar")
-  st.Expect(t, err, nil)
-  st.Expect(t, res.StatusCode, 200)
+    // 3. Describe what the code under test should be allowed to send, and
+    //    what response should come back. The DSL is fluent:
+    //      g.New(host)         -- start a mock
+    //          .Method(path)   -- pin method + path
+    //          .MatchXxx(...)  -- additional match conditions
+    //          .Reply(status)  -- transition into the response builder
+    //          .JSON(...)      -- response body
+    g.New("https://api.example.com").
+        Get("/users/42").
+        MatchHeader("Authorization", "^Bearer .+$").
+        Reply(200).
+        JSON(map[string]interface{}{"id": 42, "name": "Ada"})
 
-  body, _ := ioutil.ReadAll(res.Body)
-  st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+    // 4. Hand the transport to the *http.Client used by the code under test.
+    //    g.Client() is a convenience for &http.Client{Transport: g}; use the
+    //    explicit form when you also need to set timeouts, redirect policy, etc.
+    client := g.Client()
 
-  // Verify that we don't have pending mocks
-  st.Expect(t, gock.IsDone(), true)
+    req, _ := http.NewRequest(http.MethodGet, "https://api.example.com/users/42", nil)
+    req.Header.Set("Authorization", "Bearer s3cret")
+    res, err := client.Do(req)
+    if err != nil {
+        t.Fatalf("request: %v", err)
+    }
+    defer res.Body.Close()
+
+    // 5. The response was built from the mock; no real network call happened.
+    var user struct {
+        ID   int    `json:"id"`
+        Name string `json:"name"`
+    }
+    if err := json.NewDecoder(res.Body).Decode(&user); err != nil {
+        t.Fatalf("decode: %v", err)
+    }
+    if user.Name != "Ada" {
+        t.Fatalf("got %q, want %q", user.Name, "Ada")
+    }
+
+    // 6. Optional: assert every declared mock was actually consumed. A leftover
+    //    mock typically means the code under test never made the call you expected.
+    if !g.IsDone() {
+        t.Errorf("pending mocks remain: %d", len(g.Pending()))
+    }
 }
 ```
 
-#### Request headers matching
+A few things worth knowing once you start writing real tests with this:
+
+- **Matching is FIFO.** When several mocks would match the same request, the first one declared wins. Declare specific mocks before generic catch-alls.
+- **Unmatched requests fail by default.** They produce `pgock.ErrCannotMatch`. Call `g.EnableNetworking()` to let unmatched requests fall through to the real network (and use `g.NetworkingFilter(fn)` for finer control over which ones). Pass an `*http.Client` — `g.EnableNetworking(myClient)` — to route that real traffic through the client's own transport, preserving its custom TLS, proxy or dialer config; otherwise it goes through `http.DefaultTransport`.
+- **`g.GetUnmatchedRequests()`** returns the slice of requests that didn't match any mock — handy when diagnosing a failing test.
+- **Counters:** by default each mock is single-use. Use `.Times(n)` for a counted mock or `.Persist()` for one that never expires.
+
+## How it works
+
+`*pgock.Transport` implements `http.RoundTripper`. When a request comes in:
+
+1. It is matched against the transport's registered mocks in declaration order.
+2. If a mock matches, a synthetic `*http.Response` is built from the mock's `Reply(...)` chain and returned. No syscall happens.
+3. If no mock matches and real networking is disabled, the request fails with `ErrCannotMatch` and the request is appended to the transport's unmatched-request log.
+4. If no mock matches but networking is enabled (and any registered `NetworkingFilter`s allow it), the request is forwarded to the delegate transport (`http.DefaultTransport` by default).
+
+A transport that has been switched off (`Off()` / `Disable()`) refuses every request with `ErrTransportDisabled`. The real network is only ever reachable through the explicit opt-ins — `EnableNetworking` on the transport or `EnableNetworking()` on an individual mock — never as a silent fallback.
+
+There is **no package-level state**. Each `*pgock.Transport` owns its mock registry, observer, networking config, and unmatched-request log. Tests holding distinct transports cannot interfere with each other.
+
+## Intercepting code that uses `http.DefaultClient`
+
+The recommended pattern is to inject a `*http.Client` (or an `http.RoundTripper`) into the code under test. When that is impossible — for example, a third-party library that calls `http.Get` directly — the escape hatch `g.InstrumentDefaultClient()` swaps `http.DefaultClient.Transport` for the duration of the test:
 
 ```go
-package test
+g := pgock.NewTransport()
+defer g.Off() // also restores http.DefaultClient.Transport
 
-import (
-  "io/ioutil"
-  "net/http"
-  "testing"
+g.InstrumentDefaultClient()
+g.New("http://foo.com").Reply(200)
 
-  "github.com/nbio/st"
-  "github.com/h2non/gock"
-)
-
-func TestMatchHeaders(t *testing.T) {
-  defer gock.Off()
-
-  gock.New("http://foo.com").
-    MatchHeader("Authorization", "^foo bar$").
-    MatchHeader("API", "1.[0-9]+").
-    HeaderPresent("Accept").
-    Reply(200).
-    BodyString("foo foo")
-
-  req, err := http.NewRequest("GET", "http://foo.com", nil)
-  req.Header.Set("Authorization", "foo bar")
-  req.Header.Set("API", "1.0")
-  req.Header.Set("Accept", "text/plain")
-
-  res, err := (&http.Client{}).Do(req)
-  st.Expect(t, err, nil)
-  st.Expect(t, res.StatusCode, 200)
-  body, _ := ioutil.ReadAll(res.Body)
-  st.Expect(t, string(body), "foo foo")
-
-  // Verify that we don't have pending mocks
-  st.Expect(t, gock.IsDone(), true)
-}
+// Third-party code that calls http.Get internally is now routed through g.
+thirdparty.Do("http://foo.com")
 ```
 
-#### Request param matching
+This is an **anti-pattern**: it mutates process-wide state and is not safe to call from parallel tests. Use it only when the code under test genuinely cannot accept an injected client.
 
-```go
-package test
+## Custom matchers
 
-import (
-  "io/ioutil"
-  "net/http"
-  "testing"
+A matcher is just `func(*http.Request, *pgock.Request) (bool, error)`. Add one with `(*Request).AddMatcher(fn)` to extend the built-in chain, or replace it entirely with `(*Request).SetMatcher(matcher)`.
 
-  "github.com/nbio/st"
-  "github.com/h2non/gock"
-)
+## API reference
 
-func TestMatchParams(t *testing.T) {
-  defer gock.Off()
-
-  gock.New("http://foo.com").
-    MatchParam("page", "1").
-    MatchParam("per_page", "10").
-    Reply(200).
-    BodyString("foo foo")
-
-  req, err := http.NewRequest("GET", "http://foo.com?page=1&per_page=10", nil)
-
-  res, err := (&http.Client{}).Do(req)
-  st.Expect(t, err, nil)
-  st.Expect(t, res.StatusCode, 200)
-  body, _ := ioutil.ReadAll(res.Body)
-  st.Expect(t, string(body), "foo foo")
-
-  // Verify that we don't have pending mocks
-  st.Expect(t, gock.IsDone(), true)
-}
-```
-
-#### JSON body matching and response
-
-```go
-package test
-
-import (
-  "bytes"
-  "io/ioutil"
-  "net/http"
-  "testing"
-	
-	"github.com/nbio/st"
-  "github.com/h2non/gock"
-)
-
-func TestMockSimple(t *testing.T) {
-  defer gock.Off()
-
-  gock.New("http://foo.com").
-    Post("/bar").
-    MatchType("json").
-    JSON(map[string]string{"foo": "bar"}).
-    Reply(201).
-    JSON(map[string]string{"bar": "foo"})
-
-  body := bytes.NewBuffer([]byte(`{"foo":"bar"}`))
-  res, err := http.Post("http://foo.com/bar", "application/json", body)
-  st.Expect(t, err, nil)
-  st.Expect(t, res.StatusCode, 201)
-
-  resBody, _ := ioutil.ReadAll(res.Body)
-  st.Expect(t, string(resBody)[:13], `{"bar":"foo"}`)
-
-  // Verify that we don't have pending mocks
-  st.Expect(t, gock.IsDone(), true)
-}
-```
-
-#### Mocking a custom http.Client and http.RoundTripper
-
-```go
-package test
-
-import (
-  "io/ioutil"
-  "net/http"
-  "testing"
-
-  "github.com/nbio/st"
-  "github.com/h2non/gock"
-)
-
-func TestClient(t *testing.T) {
-  defer gock.Off()
-
-  gock.New("http://foo.com").
-    Reply(200).
-    BodyString("foo foo")
-
-  req, err := http.NewRequest("GET", "http://foo.com", nil)
-  client := &http.Client{Transport: &http.Transport{}}
-  gock.InterceptClient(client)
-
-  res, err := client.Do(req)
-  st.Expect(t, err, nil)
-  st.Expect(t, res.StatusCode, 200)
-  body, _ := ioutil.ReadAll(res.Body)
-  st.Expect(t, string(body), "foo foo")
-
-  // Verify that we don't have pending mocks
-  st.Expect(t, gock.IsDone(), true)
-}
-```
-
-#### Enable real networking
-
-```go
-package main
-
-import (
-  "fmt"
-  "io/ioutil"
-  "net/http"
-
-  "github.com/h2non/gock"
-)
-
-func main() {
-  defer gock.Off()
-  defer gock.DisableNetworking()
-
-  gock.EnableNetworking()
-  gock.New("http://httpbin.org").
-    Get("/get").
-    Reply(201).
-    SetHeader("Server", "gock")
-
-  res, err := http.Get("http://httpbin.org/get")
-  if err != nil {
-    fmt.Errorf("Error: %s", err)
-  }
-
-  // The response status comes from the mock
-  fmt.Printf("Status: %d\n", res.StatusCode)
-  // The server header comes from mock as well
-  fmt.Printf("Server header: %s\n", res.Header.Get("Server"))
-  // Response body is the original
-  body, _ := ioutil.ReadAll(res.Body)
-  fmt.Printf("Body: %s", string(body))
-}
-```
-
-#### Debug intercepted http requests
-
-```go
-package main
-
-import (
-	"bytes"
-	"net/http"
-	
-  "github.com/h2non/gock"
-)
-
-func main() {
-	defer gock.Off()
-	gock.Observe(gock.DumpRequest)
-
-	gock.New("http://foo.com").
-		Post("/bar").
-		MatchType("json").
-		JSON(map[string]string{"foo": "bar"}).
-		Reply(200)
-
-	body := bytes.NewBuffer([]byte(`{"foo":"bar"}`))
-	http.Post("http://foo.com/bar", "application/json", body)
-}
-
-```
-
-## Hacking it!
-
-You can easily hack `gock` defining custom matcher functions with own matching rules.
-
-See [add matcher functions](https://github.com/h2non/gock/blob/master/_examples/add_matchers/matchers.go) and [custom matching layer](https://github.com/h2non/gock/blob/master/_examples/custom_matcher/matcher.go) examples for further details.
+See the [godoc reference](https://pkg.go.dev/github.com/exaring/pgock) for the full API.
 
 ## License
 
-MIT - Tomas Aparicio
+MIT

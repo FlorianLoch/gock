@@ -1,10 +1,10 @@
-package gock
+package pgock
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -80,7 +80,7 @@ func MatchHeaders(req *http.Request, ereq *Request) (bool, error) {
 		var matchEscaped bool
 
 		for _, field := range req.Header[key] {
-			match, err = regexp.MatchString(value[0], field)
+			match, _ = regexp.MatchString(value[0], field)
 			// Some values may contain reserved regex params e.g. "()", try matching with these escaped.
 			matchEscaped, err = regexp.MatchString(regexp.QuoteMeta(value[0]), field)
 
@@ -147,6 +147,11 @@ func MatchBody(req *http.Request, ereq *Request) (bool, error) {
 		return true, nil
 	}
 
+	// A request without a body cannot satisfy a body expectation
+	if req.Body == nil {
+		return false, nil
+	}
+
 	// Only can match certain MIME body types
 	if !supportedType(req, ereq) {
 		return false, nil
@@ -157,27 +162,29 @@ func MatchBody(req *http.Request, ereq *Request) (bool, error) {
 		return false, nil
 	}
 
-	// Create a reader for the body depending on compression type
-	bodyReader := req.Body
+	// Read the whole request body and restore it untouched, so the request
+	// stays intact (e.g. for real-network fallback) whatever the match outcome
+	raw, err := io.ReadAll(req.Body)
+	if err != nil {
+		return false, err
+	}
+	req.Body = createReadCloser(raw)
+
+	// Decompress a copy of the body for matching, if required
+	body := raw
 	if ereq.CompressionScheme != "" {
 		if ereq.CompressionScheme != req.Header.Get("Content-Encoding") {
 			return false, nil
 		}
-		compressedBodyReader, err := compressionReader(req.Body, ereq.CompressionScheme)
+		compressedBodyReader, err := compressionReader(io.NopCloser(bytes.NewReader(raw)), ereq.CompressionScheme)
 		if err != nil {
 			return false, err
 		}
-		bodyReader = compressedBodyReader
+		body, err = io.ReadAll(compressedBodyReader)
+		if err != nil {
+			return false, err
+		}
 	}
-
-	// Read the whole request body
-	body, err := ioutil.ReadAll(bodyReader)
-	if err != nil {
-		return false, err
-	}
-
-	// Restore body reader stream
-	req.Body = createReadCloser(body)
 
 	// If empty, ignore the match
 	if len(body) == 0 && len(ereq.BodyBuffer) != 0 {
@@ -193,7 +200,7 @@ func MatchBody(req *http.Request, ereq *Request) (bool, error) {
 
 	// Match request body by regexp
 	match, _ := regexp.MatchString(matchStr, bodyStr)
-	if match == true {
+	if match {
 		return true, nil
 	}
 

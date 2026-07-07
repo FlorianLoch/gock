@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import (
 	"net/http"

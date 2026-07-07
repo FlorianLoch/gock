@@ -1,45 +1,36 @@
-package gock
+package pgock
 
-import (
-	"sync"
-)
+// Register adds the given mock to this Transport's set of registered mocks.
+// Mocks that are already registered (same pointer identity) are ignored.
+func (t *Transport) Register(mock Mock) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-// storeMutex is used interally for store synchronization.
-var storeMutex = sync.RWMutex{}
-
-// mocks is internally used to store registered mocks.
-var mocks = []Mock{}
-
-// Register registers a new mock in the current mocks stack.
-func Register(mock Mock) {
-	if Exists(mock) {
-		return
+	for _, existing := range t.mocks {
+		if existing == mock {
+			return
+		}
 	}
 
-	// Make ops thread safe
-	storeMutex.Lock()
-	defer storeMutex.Unlock()
-
-	// Expose mock in request/response for delegation
 	mock.Request().Mock = mock
 	mock.Response().Mock = mock
-
-	// Registers the mock in the global store
-	mocks = append(mocks, mock)
+	t.mocks = append(t.mocks, mock)
 }
 
-// GetAll returns the current stack of registered mocks.
-func GetAll() []Mock {
-	storeMutex.RLock()
-	defer storeMutex.RUnlock()
-	return mocks
+// GetAll returns a snapshot of the currently registered mocks.
+func (t *Transport) GetAll() []Mock {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]Mock, len(t.mocks))
+	copy(out, t.mocks)
+	return out
 }
 
-// Exists checks if the given Mock is already registered.
-func Exists(m Mock) bool {
-	storeMutex.RLock()
-	defer storeMutex.RUnlock()
-	for _, mock := range mocks {
+// Exists reports whether the given mock is currently registered.
+func (t *Transport) Exists(m Mock) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, mock := range t.mocks {
 		if mock == m {
 			return true
 		}
@@ -47,54 +38,58 @@ func Exists(m Mock) bool {
 	return false
 }
 
-// Remove removes a registered mock by reference.
-func Remove(m Mock) {
-	storeMutex.Lock()
-	defer storeMutex.Unlock()
-	for i, mock := range mocks {
+// Remove unregisters the given mock by pointer identity. No-op if the mock
+// is not registered.
+func (t *Transport) Remove(m Mock) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for i, mock := range t.mocks {
 		if mock == m {
-			mocks = append(mocks[:i], mocks[i+1:]...)
+			copy(t.mocks[i:], t.mocks[i+1:])
+			// Clear the now-duplicated tail slot so the removed mock can be
+			// garbage-collected instead of being pinned by the backing array.
+			t.mocks[len(t.mocks)-1] = nil
+			t.mocks = t.mocks[:len(t.mocks)-1]
+			return
 		}
 	}
 }
 
-// Flush flushes the current stack of registered mocks.
-func Flush() {
-	storeMutex.Lock()
-	defer storeMutex.Unlock()
-	mocks = []Mock{}
+// Flush removes every registered mock.
+func (t *Transport) Flush() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.mocks = nil
 }
 
-// Pending returns an slice of pending mocks.
-func Pending() []Mock {
-	Clean()
-	storeMutex.RLock()
-	defer storeMutex.RUnlock()
-	return mocks
+// Pending returns the mocks that have not yet been fully consumed. It also
+// prunes done mocks as a side effect.
+func (t *Transport) Pending() []Mock {
+	t.Clean()
+	return t.GetAll()
 }
 
-// IsDone returns true if all the registered mocks has been triggered successfully.
-func IsDone() bool {
-	return !IsPending()
+// IsDone reports whether every registered mock has been consumed.
+func (t *Transport) IsDone() bool {
+	return !t.IsPending()
 }
 
-// IsPending returns true if there are pending mocks.
-func IsPending() bool {
-	return len(Pending()) > 0
+// IsPending reports whether at least one mock is still waiting to be consumed.
+func (t *Transport) IsPending() bool {
+	return len(t.Pending()) > 0
 }
 
-// Clean cleans the mocks store removing disabled or obsolete mocks.
-func Clean() {
-	storeMutex.Lock()
-	defer storeMutex.Unlock()
+// Clean removes mocks whose request counters have been exhausted.
+func (t *Transport) Clean() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-	buf := []Mock{}
-	for _, mock := range mocks {
+	kept := make([]Mock, 0, len(t.mocks))
+	for _, mock := range t.mocks {
 		if mock.Done() {
 			continue
 		}
-		buf = append(buf, mock)
+		kept = append(kept, mock)
 	}
-
-	mocks = buf
+	t.mocks = kept
 }

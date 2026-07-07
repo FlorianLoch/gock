@@ -1,3 +1,68 @@
+## v2.0.0 (unreleased)
+
+  * **Forked from [gock](https://github.com/h2non/gock) and renamed to `pgock`**
+    ("the gock for parallel tests"). The module path is now
+    `github.com/exaring/pgock` and the Go package is `pgock`; update imports and
+    qualified references accordingly (`gock.X` → `pgock.X`).
+  * **BREAKING**: removed all package-level state and the package-level API
+    (the old `gock.New`, `gock.Off`, `gock.Intercept`, `gock.InterceptClient`,
+    etc.). All state now lives on `*pgock.Transport`. Tests construct their own
+    transport with `pgock.NewTransport()` and either hand it to an
+    `*http.Client` directly or use the new `g.Client()` helper. This makes
+    `pgock` safe to use with `t.Parallel()` and removes the implicit
+    mutation of `http.DefaultTransport`.
+  * Added `(*Transport).Client()` returning a pre-wired `*http.Client`.
+  * Added `(*Transport).InstrumentDefaultClient()` /
+    `(*Transport).RestoreDefaultClient()` as an opt-in compatibility
+    escape hatch for code paths that use `http.DefaultClient` and cannot
+    accept an injected client. Documented as an anti-pattern.
+  * `(*Transport).EnableNetworking` now optionally accepts an `*http.Client`,
+    routing real-network fallback through that client's transport (preserving
+    custom TLS/proxy/dialer config) instead of always using
+    `http.DefaultTransport`.
+  * **BREAKING**: a disabled `Transport` (after `Off()` / `Disable()`) no
+    longer forwards requests to the real network; every request fails with the
+    new `ErrTransportDisabled` sentinel. In gock, `Disable()` had to restore
+    real networking because the library hijacked the process-wide
+    `http.DefaultTransport`; in the instance-based model a test client that
+    outlives its mocks should fail loudly instead of silently talking to real
+    services. Real traffic only flows through the explicit opt-ins
+    (`(*Transport).EnableNetworking` and per-mock `EnableNetworking()`).
+  * fix(matchers): `MatchQueryParams` propagates regular-expression compile
+    errors again instead of silently treating them as a non-match (a
+    regression against gock introduced while silencing a linter).
+  * fix(matchers): `MatchBody` no longer panics on a request without a body —
+    a bodyless request against a mock with a body expectation is a plain
+    non-match. (Inherited from gock.)
+  * fix(matchers): `MatchBody` restores the request body in its original
+    (possibly compressed) form after matching, so a request that falls through
+    to the real network is forwarded intact instead of with a decompressed
+    body and a stale `Content-Encoding` header. (Inherited from gock.)
+  * fix(mock): a mock registered with `Times(0)` (or a negative counter) can
+    never match. Previously the counter went negative on the first match and
+    the mock stayed active forever. (Inherited from gock.)
+  * fix(responder): when a networked mock overrides the body of a real
+    response, the original network body is closed instead of leaking its
+    connection. (Inherited from gock.)
+  * Removed the `_examples` directory; the README's Getting started section
+    replaces it.
+  * fix(transport): match mocks without holding the registry/config lock so a
+    user-supplied matcher/filter/mapper can call back into the transport
+    without deadlocking; a dedicated lock still serializes match-and-consume so
+    concurrent requests never double-consume a finite-counter mock.
+  * fix(transport): requests whose matcher returns an error are no longer
+    recorded in the unmatched-request log.
+  * fix(transport): `InstrumentDefaultClient` keys idempotency off the live
+    `http.DefaultClient.Transport`, so a no-op restore (when another transport
+    has overlaid this one) no longer wedges a later re-instrument into silently
+    doing nothing, and the saved "previous" transport can never be itself.
+  * fix(transport): a zero-value `Transport` (constructed without
+    `NewTransport`) no longer panics: it starts out disabled, so requests fail
+    with `ErrTransportDisabled`, and its real-network delegate defaults to
+    `http.DefaultTransport`.
+  * fix(store): `Remove` clears the freed tail slot so a removed mock is no
+    longer pinned by the backing array.
+
 ## v1.2.0 / 2022-10-19
 
   * refactor(package): import path changed to github.com/h2non/gock

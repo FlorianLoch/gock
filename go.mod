@@ -1,6 +1,6 @@
-module github.com/h2non/gock
+module github.com/exaring/pgock
 
-go 1.13
+go 1.26
 
 require (
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542

@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import (
 	"bytes"
@@ -49,8 +49,8 @@ func TestRequestBodyString(t *testing.T) {
 
 func TestRequestFile(t *testing.T) {
 	req := NewRequest()
-	req.File("version.go")
-	st.Expect(t, string(req.BodyBuffer)[:12], "package gock")
+	req.File("pgock.go")
+	st.Expect(t, string(req.BodyBuffer)[:13], "package pgock")
 }
 
 func TestRequestJSON(t *testing.T) {
@@ -235,7 +235,6 @@ func TestRequestMethods(t *testing.T) {
 }
 
 func TestRequestSetMatcher(t *testing.T) {
-	defer after()
 
 	matcher := NewEmptyMatcher()
 	matcher.Add(func(req *http.Request, ereq *Request) (bool, error) {
@@ -262,7 +261,6 @@ func TestRequestSetMatcher(t *testing.T) {
 }
 
 func TestRequestAddMatcher(t *testing.T) {
-	defer after()
 
 	ereq := NewRequest()
 	mock := NewMock(ereq, &Response{})

@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import "net/http"
 
@@ -77,8 +77,6 @@ func NewEmptyMatcher() *MockMatcher {
 
 // Get returns a slice of registered function matchers.
 func (m *MockMatcher) Get() []MatchFunc {
-	mutex.Lock()
-	defer mutex.Unlock()
 	return m.Matchers
 }
 
@@ -121,10 +119,14 @@ func (m *MockMatcher) Match(req *http.Request, ereq *Request) (bool, error) {
 	return true, nil
 }
 
-// MatchMock is a helper function that matches the given http.Request
-// in the list of registered mocks, returning it if matches or error if it fails.
-func MatchMock(req *http.Request) (Mock, error) {
-	for _, mock := range GetAll() {
+// MatchMock walks this Transport's registered mocks and returns the first
+// one that matches the given request, or (nil, nil) if none does.
+func (t *Transport) MatchMock(req *http.Request) (Mock, error) {
+	return matchMocks(t.GetAll(), req)
+}
+
+func matchMocks(mocks []Mock, req *http.Request) (Mock, error) {
+	for _, mock := range mocks {
 		matches, err := mock.Match(req)
 		if err != nil {
 			return nil, err

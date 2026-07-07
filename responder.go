@@ -1,9 +1,8 @@
-package gock
+package pgock
 
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -36,6 +35,13 @@ func Responder(req *http.Request, mock *Response, res *http.Response) (*http.Res
 
 	// Define headers by merging fields
 	res.Header = mergeHeaders(res, mock)
+
+	// Close the body about to be replaced by the mock's one; it may belong to
+	// a real network response (a networked mock) whose connection would
+	// otherwise leak
+	if (len(mock.BodyBuffer) > 0 || mock.BodyGen != nil) && res.Body != nil {
+		_ = res.Body.Close()
+	}
 
 	// Define mock body, if present
 	if len(mock.BodyBuffer) > 0 {
@@ -74,8 +80,8 @@ func Responder(req *http.Request, mock *Response, res *http.Response) (*http.Res
 	// has the added benefit of working even when there is no delay (very small timeouts, already-done contexts, etc.)
 	if err = req.Context().Err(); err != nil {
 		// cleanly close the response and return the context error
-		io.Copy(ioutil.Discard, res.Body)
-		res.Body.Close()
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
 		return nil, err
 	}
 
@@ -107,5 +113,5 @@ func mergeHeaders(res *http.Response, mres *Response) http.Header {
 // createReadCloser creates an io.ReadCloser from a byte slice that is suitable for use as an
 // http response body.
 func createReadCloser(body []byte) io.ReadCloser {
-	return ioutil.NopCloser(bytes.NewReader(body))
+	return io.NopCloser(bytes.NewReader(body))
 }

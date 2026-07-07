@@ -1,12 +1,12 @@
-package gock
+package pgock
 
 import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -17,7 +17,7 @@ type MapResponseFunc func(*http.Response) *http.Response
 type FilterResponseFunc func(*http.Response) bool
 
 // Response represents high-level HTTP fields to configure
-// and define HTTP responses intercepted by gock.
+// and define HTTP responses intercepted by pgock.
 type Response struct {
 	// Mock stores the parent mock reference for the current response mock used for method delegation.
 	Mock Mock
@@ -98,7 +98,7 @@ func (r *Response) SetHeaders(headers map[string]string) *Response {
 
 // Body sets the HTTP response body to be used.
 func (r *Response) Body(body io.Reader) *Response {
-	r.BodyBuffer, r.Error = ioutil.ReadAll(body)
+	r.BodyBuffer, r.Error = io.ReadAll(body)
 	return r
 }
 
@@ -118,7 +118,7 @@ func (r *Response) BodyString(body string) *Response {
 // File defines the response body reading the data
 // from disk based on the file path string.
 func (r *Response) File(path string) *Response {
-	r.BodyBuffer, r.Error = ioutil.ReadFile(path)
+	r.BodyBuffer, r.Error = os.ReadFile(path)
 	return r
 }
 
@@ -175,11 +175,11 @@ func (r *Response) Done() bool {
 func readAndDecode(data interface{}, kind string) ([]byte, error) {
 	buf := &bytes.Buffer{}
 
-	switch data.(type) {
+	switch data := data.(type) {
 	case string:
-		buf.WriteString(data.(string))
+		buf.WriteString(data)
 	case []byte:
-		buf.Write(data.([]byte))
+		buf.Write(data)
 	default:
 		var err error
 		if kind == "xml" {
@@ -192,5 +192,5 @@ func readAndDecode(data interface{}, kind string) ([]byte, error) {
 		}
 	}
 
-	return ioutil.ReadAll(buf)
+	return io.ReadAll(buf)
 }

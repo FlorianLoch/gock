@@ -1,4 +1,4 @@
-package gock
+package pgock
 
 import (
 	"bytes"
@@ -96,8 +96,8 @@ func TestResponseBodyString(t *testing.T) {
 
 func TestResponseFile(t *testing.T) {
 	res := NewResponse()
-	res.File("version.go")
-	st.Expect(t, string(res.BodyBuffer)[:12], "package gock")
+	res.File("pgock.go")
+	st.Expect(t, string(res.BodyBuffer)[:13], "package pgock")
 }
 
 func TestResponseJSON(t *testing.T) {
