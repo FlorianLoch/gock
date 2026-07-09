@@ -2,7 +2,7 @@
 
 Versatile HTTP mocking made easy in [Go](https://golang.org), built for parallel tests. Works with anything that uses `net/http`.
 
-`pgock` is a fork of [gock](https://github.com/h2non/gock) reworked around a self-contained `*Transport`: there is no package-level state and nothing mutates `http.DefaultTransport`, so every test owns its mocks and can run under `t.Parallel()` without interfering with others.
+`pgock` — the **p** is for **parallel** — is a fork of [gock](https://github.com/h2non/gock) reworked around a self-contained `*Transport`: there is no package-level state and nothing mutates `http.DefaultTransport`, so every test owns its mocks and can run under `t.Parallel()` without interfering with others. See [How pgock differs from gock](#how-pgock-differs-from-gock) for the full story.
 
 Heavily inspired by [nock](https://github.com/node-nock/nock); there is also a Python port, [pook](https://github.com/h2non/pook).
 
@@ -18,6 +18,25 @@ Heavily inspired by [nock](https://github.com/node-nock/nock); there is also a P
 - Standard `http.RoundTripper` integration — drop into any `net/http`-compatible client.
 - Simulate response delay and context cancellation.
 - Lightweight: a single small runtime dependency (`github.com/h2non/parth`).
+
+## How pgock differs from gock
+
+The **`p` is for parallel**, and that is the entire reason the fork exists.
+
+`gock` keeps its mock registry, networking config and observer in package-level globals, and intercepts traffic by swapping `http.DefaultTransport` process-wide. Because that state is shared across the whole binary, two tests that both register mocks cannot run at the same time — they clobber each other's registry and interception. `t.Parallel()` is effectively off-limits, and state leaks from one test into the next.
+
+`pgock` moves **all** of that state onto a self-contained `*pgock.Transport`. Each test builds its own transport, hands it to an `*http.Client`, and nothing process-wide is touched. Tests are therefore isolated by construction and safe under `t.Parallel()`. That isolation is the point of the fork — hence the name.
+
+Concretely, compared to `gock`:
+
+- **No package-level state or API.** The old package-level entry points (`gock.New`, `gock.Off`, `gock.Intercept`, `gock.InterceptClient`, …) are gone. Everything is a method on a transport created with `pgock.NewTransport()`, and `g.Client()` returns a pre-wired `*http.Client`.
+- **`http.DefaultTransport` is never mutated.** Interception happens only through the transport you inject. For code that hard-codes `http.DefaultClient` and cannot take an injected client, `g.InstrumentDefaultClient()` is an opt-in, explicitly-labelled anti-pattern escape hatch (see below).
+- **A disabled transport fails loudly.** After `Off()` / `Disable()`, requests return `ErrTransportDisabled` instead of silently escaping to the real network; real traffic only flows through the explicit `EnableNetworking` opt-ins. (`gock` had to restore real networking on disable precisely because it hijacked the global transport — `pgock` doesn't, so it doesn't need to.)
+- **`EnableNetworking` can borrow a client's transport**, so real-network fallback preserves that client's custom TLS / proxy / dialer configuration.
+- **Assorted correctness fixes** over upstream: query-param regex errors surface instead of being swallowed, body matching no longer panics on bodyless requests nor corrupts compressed bodies on network fallback, `Times(0)` mocks never match, and an overridden network response body is closed rather than leaked.
+- **Modernised toolchain:** Go 1.26, `io`/`os` (no `io/ioutil`), `testify`-based tests, and a GitHub Actions CI running tests, lint and `go mod tidy`.
+
+Migration is mostly mechanical: replace each package-level call with the equivalent method on a `pgock.NewTransport()`, and pass `g.Client()` (or `g` itself as an `http.RoundTripper`) to the code under test instead of relying on the global `http.DefaultTransport` swap.
 
 ## Installation
 
