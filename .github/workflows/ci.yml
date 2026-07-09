@@ -8,13 +8,18 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same branch/PR instead of running them to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - run: go test -race -count=1 ./...
@@ -23,20 +28,24 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      # Pin golangci-lint for reproducibility; bump when you want a new version.
-      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
-      - run: golangci-lint run --timeout=5m ./...
+      # Official action: installs a prebuilt golangci-lint and caches both the
+      # binary and the lint results. Upstream explicitly does not support
+      # installing golangci-lint via `go install`. Pin the version for
+      # reproducibility; bump when you want a newer release.
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
 
   tidy:
     name: go mod tidy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       # Exits non-zero (printing the would-be diff) if go.mod / go.sum aren't tidy.
