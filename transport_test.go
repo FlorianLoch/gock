@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/nbio/st"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTransportMatch(t *testing.T) {
@@ -19,9 +19,9 @@ func TestTransportMatch(t *testing.T) {
 	u, _ := url.Parse(uri)
 	req := &http.Request{URL: u}
 	res, err := g.RoundTrip(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 204)
-	st.Expect(t, res.Request, req)
+	require.NoError(t, err)
+	require.Equal(t, 204, res.StatusCode)
+	require.Equal(t, req, res.Request)
 }
 
 func TestTransportCannotMatch(t *testing.T) {
@@ -31,7 +31,7 @@ func TestTransportCannotMatch(t *testing.T) {
 	u, _ := url.Parse("http://127.0.0.1:1234")
 	req := &http.Request{URL: u}
 	_, err := g.RoundTrip(req)
-	st.Expect(t, err, ErrCannotMatch)
+	require.Equal(t, ErrCannotMatch, err)
 }
 
 func TestTransportDisabledRefusesRequests(t *testing.T) {
@@ -52,8 +52,8 @@ func TestTransportDisabledRefusesRequests(t *testing.T) {
 	req := &http.Request{URL: u, Header: make(http.Header)}
 
 	res, err := g.RoundTrip(req)
-	st.Expect(t, g.Intercepting(), false)
-	st.Expect(t, err, ErrTransportDisabled)
-	st.Expect(t, res == nil, true)
-	st.Expect(t, int(atomic.LoadInt32(&hits)), 0)
+	require.False(t, g.Intercepting())
+	require.Equal(t, ErrTransportDisabled, err)
+	require.True(t, res == nil)
+	require.Equal(t, 0, int(atomic.LoadInt32(&hits)))
 }

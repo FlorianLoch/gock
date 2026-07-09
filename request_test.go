@@ -6,58 +6,58 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/nbio/st"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewRequest(t *testing.T) {
 	req := NewRequest()
 	req.URL("http://foo.com")
-	st.Expect(t, req.URLStruct.Host, "foo.com")
-	st.Expect(t, req.URLStruct.Scheme, "http")
+	require.Equal(t, "foo.com", req.URLStruct.Host)
+	require.Equal(t, "http", req.URLStruct.Scheme)
 	req.MatchHeader("foo", "bar")
-	st.Expect(t, req.Header.Get("foo"), "bar")
+	require.Equal(t, "bar", req.Header.Get("foo"))
 }
 
 func TestRequestSetURL(t *testing.T) {
 	req := NewRequest()
 	req.URL("http://foo.com")
 	req.SetURL(&url.URL{Host: "bar.com", Path: "/foo"})
-	st.Expect(t, req.URLStruct.Host, "bar.com")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "bar.com", req.URLStruct.Host)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 }
 
 func TestRequestPath(t *testing.T) {
 	req := NewRequest()
 	req.URL("http://foo.com")
 	req.Path("/foo")
-	st.Expect(t, req.URLStruct.Scheme, "http")
-	st.Expect(t, req.URLStruct.Host, "foo.com")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "http", req.URLStruct.Scheme)
+	require.Equal(t, "foo.com", req.URLStruct.Host)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 }
 
 func TestRequestBody(t *testing.T) {
 	req := NewRequest()
 	req.Body(bytes.NewBuffer([]byte("foo bar")))
-	st.Expect(t, string(req.BodyBuffer), "foo bar")
+	require.Equal(t, "foo bar", string(req.BodyBuffer))
 }
 
 func TestRequestBodyString(t *testing.T) {
 	req := NewRequest()
 	req.BodyString("foo bar")
-	st.Expect(t, string(req.BodyBuffer), "foo bar")
+	require.Equal(t, "foo bar", string(req.BodyBuffer))
 }
 
 func TestRequestFile(t *testing.T) {
 	req := NewRequest()
 	req.File("pgock.go")
-	st.Expect(t, string(req.BodyBuffer)[:13], "package pgock")
+	require.Equal(t, "package pgock", string(req.BodyBuffer)[:13])
 }
 
 func TestRequestJSON(t *testing.T) {
 	req := NewRequest()
 	req.JSON(map[string]string{"foo": "bar"})
-	st.Expect(t, string(req.BodyBuffer)[:13], `{"foo":"bar"}`)
-	st.Expect(t, req.Header.Get("Content-Type"), "application/json")
+	require.Equal(t, `{"foo":"bar"}`, string(req.BodyBuffer)[:13])
+	require.Equal(t, "application/json", req.Header.Get("Content-Type"))
 }
 
 func TestRequestXML(t *testing.T) {
@@ -66,28 +66,28 @@ func TestRequestXML(t *testing.T) {
 		Data string `xml:"data"`
 	}
 	req.XML(xml{Data: "foo"})
-	st.Expect(t, string(req.BodyBuffer), `<xml><data>foo</data></xml>`)
-	st.Expect(t, req.Header.Get("Content-Type"), "application/xml")
+	require.Equal(t, `<xml><data>foo</data></xml>`, string(req.BodyBuffer))
+	require.Equal(t, "application/xml", req.Header.Get("Content-Type"))
 }
 
 func TestRequestMatchType(t *testing.T) {
 	req := NewRequest()
 	req.MatchType("json")
-	st.Expect(t, req.Header.Get("Content-Type"), "application/json")
+	require.Equal(t, "application/json", req.Header.Get("Content-Type"))
 
 	req = NewRequest()
 	req.MatchType("html")
-	st.Expect(t, req.Header.Get("Content-Type"), "text/html")
+	require.Equal(t, "text/html", req.Header.Get("Content-Type"))
 
 	req = NewRequest()
 	req.MatchType("foo/bar")
-	st.Expect(t, req.Header.Get("Content-Type"), "foo/bar")
+	require.Equal(t, "foo/bar", req.Header.Get("Content-Type"))
 }
 
 func TestRequestBasicAuth(t *testing.T) {
 	req := NewRequest()
 	req.BasicAuth("bob", "qwerty")
-	st.Expect(t, req.Header.Get("Authorization"), "Basic Ym9iOnF3ZXJ0eQ==")
+	require.Equal(t, "Basic Ym9iOnF3ZXJ0eQ==", req.Header.Get("Authorization"))
 }
 
 func TestRequestMatchHeader(t *testing.T) {
@@ -97,10 +97,10 @@ func TestRequestMatchHeader(t *testing.T) {
 	req.MatchHeader("UPPERCASE", "bat")
 	req.MatchHeader("Mixed-CASE", "foo")
 
-	st.Expect(t, req.Header.Get("foo"), "bar")
-	st.Expect(t, req.Header.Get("bar"), "baz")
-	st.Expect(t, req.Header.Get("UPPERCASE"), "bat")
-	st.Expect(t, req.Header.Get("Mixed-CASE"), "foo")
+	require.Equal(t, "bar", req.Header.Get("foo"))
+	require.Equal(t, "baz", req.Header.Get("bar"))
+	require.Equal(t, "bat", req.Header.Get("UPPERCASE"))
+	require.Equal(t, "foo", req.Header.Get("Mixed-CASE"))
 }
 
 func TestRequestHeaderPresent(t *testing.T) {
@@ -109,77 +109,77 @@ func TestRequestHeaderPresent(t *testing.T) {
 	req.HeaderPresent("bar")
 	req.HeaderPresent("UPPERCASE")
 	req.HeaderPresent("Mixed-CASE")
-	st.Expect(t, req.Header.Get("foo"), ".*")
-	st.Expect(t, req.Header.Get("bar"), ".*")
-	st.Expect(t, req.Header.Get("UPPERCASE"), ".*")
-	st.Expect(t, req.Header.Get("Mixed-CASE"), ".*")
+	require.Equal(t, ".*", req.Header.Get("foo"))
+	require.Equal(t, ".*", req.Header.Get("bar"))
+	require.Equal(t, ".*", req.Header.Get("UPPERCASE"))
+	require.Equal(t, ".*", req.Header.Get("Mixed-CASE"))
 }
 
 func TestRequestMatchParam(t *testing.T) {
 	req := NewRequest()
 	req.MatchParam("foo", "bar")
 	req.MatchParam("bar", "baz")
-	st.Expect(t, req.URLStruct.Query().Get("foo"), "bar")
-	st.Expect(t, req.URLStruct.Query().Get("bar"), "baz")
+	require.Equal(t, "bar", req.URLStruct.Query().Get("foo"))
+	require.Equal(t, "baz", req.URLStruct.Query().Get("bar"))
 }
 
 func TestRequestMatchParams(t *testing.T) {
 	req := NewRequest()
 	req.MatchParams(map[string]string{"foo": "bar", "bar": "baz"})
-	st.Expect(t, req.URLStruct.Query().Get("foo"), "bar")
-	st.Expect(t, req.URLStruct.Query().Get("bar"), "baz")
+	require.Equal(t, "bar", req.URLStruct.Query().Get("foo"))
+	require.Equal(t, "baz", req.URLStruct.Query().Get("bar"))
 }
 
 func TestRequestPresentParam(t *testing.T) {
 	req := NewRequest()
 	req.ParamPresent("key")
-	st.Expect(t, req.URLStruct.Query().Get("key"), ".*")
+	require.Equal(t, ".*", req.URLStruct.Query().Get("key"))
 }
 
 func TestRequestPathParam(t *testing.T) {
 	req := NewRequest()
 	req.PathParam("key", "value")
-	st.Expect(t, req.PathParams["key"], "value")
+	require.Equal(t, "value", req.PathParams["key"])
 }
 
 func TestRequestPersist(t *testing.T) {
 	req := NewRequest()
-	st.Expect(t, req.Persisted, false)
+	require.False(t, req.Persisted)
 	req.Persist()
-	st.Expect(t, req.Persisted, true)
+	require.True(t, req.Persisted)
 }
 
 func TestRequestTimes(t *testing.T) {
 	req := NewRequest()
-	st.Expect(t, req.Counter, 1)
+	require.Equal(t, 1, req.Counter)
 	req.Times(3)
-	st.Expect(t, req.Counter, 3)
+	require.Equal(t, 3, req.Counter)
 }
 
 func TestRequestMap(t *testing.T) {
 	req := NewRequest()
-	st.Expect(t, len(req.Mappers), 0)
+	require.Equal(t, 0, len(req.Mappers))
 	req.Map(func(req *http.Request) *http.Request {
 		return req
 	})
-	st.Expect(t, len(req.Mappers), 1)
+	require.Equal(t, 1, len(req.Mappers))
 }
 
 func TestRequestFilter(t *testing.T) {
 	req := NewRequest()
-	st.Expect(t, len(req.Filters), 0)
+	require.Equal(t, 0, len(req.Filters))
 	req.Filter(func(req *http.Request) bool {
 		return true
 	})
-	st.Expect(t, len(req.Filters), 1)
+	require.Equal(t, 1, len(req.Filters))
 }
 
 func TestRequestEnableNetworking(t *testing.T) {
 	req := NewRequest()
 	req.Response = &Response{}
-	st.Expect(t, req.Response.UseNetwork, false)
+	require.False(t, req.Response.UseNetwork)
 	req.EnableNetworking()
-	st.Expect(t, req.Response.UseNetwork, true)
+	require.True(t, req.Response.UseNetwork)
 }
 
 func TestRequestResponse(t *testing.T) {
@@ -187,8 +187,8 @@ func TestRequestResponse(t *testing.T) {
 	res := NewResponse()
 	req.Response = res
 	chain := req.Reply(200)
-	st.Expect(t, chain, res)
-	st.Expect(t, chain.StatusCode, 200)
+	require.Equal(t, res, chain)
+	require.Equal(t, 200, chain.StatusCode)
 }
 
 func TestRequestReplyFunc(t *testing.T) {
@@ -198,40 +198,40 @@ func TestRequestReplyFunc(t *testing.T) {
 	chain := req.ReplyFunc(func(r *Response) {
 		r.Status(204)
 	})
-	st.Expect(t, chain, res)
-	st.Expect(t, chain.StatusCode, 204)
+	require.Equal(t, res, chain)
+	require.Equal(t, 204, chain.StatusCode)
 }
 
 func TestRequestMethods(t *testing.T) {
 	req := NewRequest()
 	req.Get("/foo")
-	st.Expect(t, req.Method, "GET")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "GET", req.Method)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 
 	req = NewRequest()
 	req.Post("/foo")
-	st.Expect(t, req.Method, "POST")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "POST", req.Method)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 
 	req = NewRequest()
 	req.Put("/foo")
-	st.Expect(t, req.Method, "PUT")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "PUT", req.Method)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 
 	req = NewRequest()
 	req.Delete("/foo")
-	st.Expect(t, req.Method, "DELETE")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "DELETE", req.Method)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 
 	req = NewRequest()
 	req.Patch("/foo")
-	st.Expect(t, req.Method, "PATCH")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "PATCH", req.Method)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 
 	req = NewRequest()
 	req.Head("/foo")
-	st.Expect(t, req.Method, "HEAD")
-	st.Expect(t, req.URLStruct.Path, "/foo")
+	require.Equal(t, "HEAD", req.Method)
+	require.Equal(t, "/foo", req.URLStruct.Path)
 }
 
 func TestRequestSetMatcher(t *testing.T) {
@@ -256,8 +256,8 @@ func TestRequestSetMatcher(t *testing.T) {
 	}
 
 	match, err := ereq.Mock.Match(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, match, true)
+	require.NoError(t, err)
+	require.True(t, match)
 }
 
 func TestRequestAddMatcher(t *testing.T) {
@@ -282,6 +282,6 @@ func TestRequestAddMatcher(t *testing.T) {
 	}
 
 	match, err := ereq.Mock.Match(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, match, true)
+	require.NoError(t, err)
+	require.True(t, match)
 }

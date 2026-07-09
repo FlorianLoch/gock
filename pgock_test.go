@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nbio/st"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMockSimple(t *testing.T) {
@@ -22,10 +22,10 @@ func TestMockSimple(t *testing.T) {
 	defer g.Off()
 	g.New("http://foo.com").Reply(201).JSON(map[string]string{"foo": "bar"})
 	res, err := g.Client().Get("http://foo.com")
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+	require.Equal(t, `{"foo":"bar"}`, string(body)[:13])
 }
 
 func TestMockOff(t *testing.T) {
@@ -33,7 +33,7 @@ func TestMockOff(t *testing.T) {
 	g.New("http://foo.com").Reply(201).JSON(map[string]string{"foo": "bar"})
 	g.Off()
 	_, err := g.Client().Get("http://127.0.0.1:3123")
-	st.Expect(t, errors.Is(err, ErrTransportDisabled), true)
+	require.True(t, errors.Is(err, ErrTransportDisabled))
 }
 
 func TestMockBodyStringResponse(t *testing.T) {
@@ -41,10 +41,10 @@ func TestMockBodyStringResponse(t *testing.T) {
 	defer g.Off()
 	g.New("http://foo.com").Reply(200).BodyString("foo bar")
 	res, err := g.Client().Get("http://foo.com")
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 200)
+	require.NoError(t, err)
+	require.Equal(t, 200, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body), "foo bar")
+	require.Equal(t, "foo bar", string(body))
 }
 
 func TestMockBodyMatch(t *testing.T) {
@@ -52,10 +52,10 @@ func TestMockBodyMatch(t *testing.T) {
 	defer g.Off()
 	g.New("http://foo.com").BodyString("foo bar").Reply(201).BodyString("foo foo")
 	res, err := g.Client().Post("http://foo.com", "text/plain", bytes.NewBuffer([]byte("foo bar")))
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body), "foo foo")
+	require.Equal(t, "foo foo", string(body))
 }
 
 func TestMockBodyCannotMatch(t *testing.T) {
@@ -63,7 +63,7 @@ func TestMockBodyCannotMatch(t *testing.T) {
 	defer g.Off()
 	g.New("http://foo.com").BodyString("foo foo").Reply(201).BodyString("foo foo")
 	_, err := g.Client().Post("http://foo.com", "text/plain", bytes.NewBuffer([]byte("foo bar")))
-	st.Reject(t, err, nil)
+	require.Error(t, err)
 }
 
 func TestMockBodyMatchCompressed(t *testing.T) {
@@ -76,14 +76,14 @@ func TestMockBodyMatchCompressed(t *testing.T) {
 	_, _ = w.Write([]byte("foo bar"))
 	_ = w.Close()
 	req, err := http.NewRequest("POST", "http://foo.com", &compressed)
-	st.Expect(t, err, nil)
+	require.NoError(t, err)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Type", "text/plain")
 	res, err := g.Client().Do(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body), "foo foo")
+	require.Equal(t, "foo foo", string(body))
 }
 
 func TestMockBodyCannotMatchCompressed(t *testing.T) {
@@ -91,7 +91,7 @@ func TestMockBodyCannotMatchCompressed(t *testing.T) {
 	defer g.Off()
 	g.New("http://foo.com").Compression("gzip").BodyString("foo bar").Reply(201).BodyString("foo foo")
 	_, err := g.Client().Post("http://foo.com", "text/plain", bytes.NewBuffer([]byte("foo bar")))
-	st.Reject(t, err, nil)
+	require.Error(t, err)
 }
 
 func TestMockBodyMatchJSON(t *testing.T) {
@@ -104,10 +104,10 @@ func TestMockBodyMatchJSON(t *testing.T) {
 		JSON(map[string]string{"bar": "foo"})
 
 	res, err := g.Client().Post("http://foo.com/bar", "application/json", bytes.NewBuffer([]byte(`{"foo":"bar"}`)))
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body)[:13], `{"bar":"foo"}`)
+	require.Equal(t, `{"bar":"foo"}`, string(body)[:13])
 }
 
 func TestMockBodyCannotMatchJSON(t *testing.T) {
@@ -120,7 +120,7 @@ func TestMockBodyCannotMatchJSON(t *testing.T) {
 		JSON(map[string]string{"bar": "foo"})
 
 	_, err := g.Client().Post("http://foo.com/bar", "application/json", bytes.NewBuffer([]byte(`{"foo":"bar"}`)))
-	st.Reject(t, err, nil)
+	require.Error(t, err)
 }
 
 func TestMockBodyMatchCompressedJSON(t *testing.T) {
@@ -138,14 +138,14 @@ func TestMockBodyMatchCompressedJSON(t *testing.T) {
 	_, _ = w.Write([]byte(`{"foo":"bar"}`))
 	_ = w.Close()
 	req, err := http.NewRequest("POST", "http://foo.com/bar", &compressed)
-	st.Expect(t, err, nil)
+	require.NoError(t, err)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json")
 	res, err := g.Client().Do(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body)[:13], `{"bar":"foo"}`)
+	require.Equal(t, `{"bar":"foo"}`, string(body)[:13])
 }
 
 func TestMockBodyCannotMatchCompressedJSON(t *testing.T) {
@@ -162,11 +162,11 @@ func TestMockBodyCannotMatchCompressedJSON(t *testing.T) {
 	_, _ = w.Write([]byte(`{"foo":"bar"}`))
 	_ = w.Close()
 	req, err := http.NewRequest("POST", "http://foo.com/bar", &compressed)
-	st.Expect(t, err, nil)
+	require.NoError(t, err)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Type", "application/json")
 	_, err = g.Client().Do(req)
-	st.Reject(t, err, nil)
+	require.Error(t, err)
 }
 
 func TestMockMatchHeaders(t *testing.T) {
@@ -178,10 +178,10 @@ func TestMockMatchHeaders(t *testing.T) {
 		BodyString("foo foo")
 
 	res, err := g.Client().Post("http://foo.com", "text/plain", bytes.NewBuffer([]byte("foo bar")))
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 200)
+	require.NoError(t, err)
+	require.Equal(t, 200, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body), "foo foo")
+	require.Equal(t, "foo foo", string(body))
 }
 
 func TestMockMap(t *testing.T) {
@@ -196,10 +196,10 @@ func TestMockMap(t *testing.T) {
 	mock.Reply(201).JSON(map[string]string{"foo": "bar"})
 
 	res, err := g.Client().Get("http://foo.com")
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+	require.Equal(t, `{"foo":"bar"}`, string(body)[:13])
 }
 
 func TestMockFilter(t *testing.T) {
@@ -213,21 +213,21 @@ func TestMockFilter(t *testing.T) {
 	mock.Reply(201).JSON(map[string]string{"foo": "bar"})
 
 	res, err := g.Client().Get("http://foo.com")
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 201)
+	require.NoError(t, err)
+	require.Equal(t, 201, res.StatusCode)
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+	require.Equal(t, `{"foo":"bar"}`, string(body)[:13])
 }
 
 func TestMockCounterDisabled(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
 	g.New("http://foo.com").Reply(204)
-	st.Expect(t, len(g.GetAll()), 1)
+	require.Equal(t, 1, len(g.GetAll()))
 	res, err := g.Client().Get("http://foo.com")
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 204)
-	st.Expect(t, len(g.GetAll()), 0)
+	require.NoError(t, err)
+	require.Equal(t, 204, res.StatusCode)
+	require.Equal(t, 0, len(g.GetAll()))
 }
 
 func TestMockEnableNetwork(t *testing.T) {
@@ -243,16 +243,16 @@ func TestMockEnableNetwork(t *testing.T) {
 	defer g.DisableNetworking()
 
 	g.New(ts.URL).Reply(204)
-	st.Expect(t, len(g.GetAll()), 1)
+	require.Equal(t, 1, len(g.GetAll()))
 
 	res, err := g.Client().Get(ts.URL)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 204)
-	st.Expect(t, len(g.GetAll()), 0)
+	require.NoError(t, err)
+	require.Equal(t, 204, res.StatusCode)
+	require.Equal(t, 0, len(g.GetAll()))
 
 	res, err = g.Client().Get(ts.URL)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 200)
+	require.NoError(t, err)
+	require.Equal(t, 200, res.StatusCode)
 }
 
 func TestMockEnableNetworkFilter(t *testing.T) {
@@ -273,13 +273,13 @@ func TestMockEnableNetworkFilter(t *testing.T) {
 	defer g.DisableNetworkingFilters()
 
 	g.New(ts.URL).Reply(0).SetHeader("foo", "bar")
-	st.Expect(t, len(g.GetAll()), 1)
+	require.Equal(t, 1, len(g.GetAll()))
 
 	res, err := g.Client().Get(ts.URL)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 200)
-	st.Expect(t, res.Header.Get("foo"), "bar")
-	st.Expect(t, len(g.GetAll()), 0)
+	require.NoError(t, err)
+	require.Equal(t, 200, res.StatusCode)
+	require.Equal(t, "bar", res.Header.Get("foo"))
+	require.Equal(t, 0, len(g.GetAll()))
 }
 
 func TestMockPersistent(t *testing.T) {
@@ -293,10 +293,10 @@ func TestMockPersistent(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		res, err := g.Client().Get("http://foo.com/bar")
-		st.Expect(t, err, nil)
-		st.Expect(t, res.StatusCode, 200)
+		require.NoError(t, err)
+		require.Equal(t, 200, res.StatusCode)
 		body, _ := io.ReadAll(res.Body)
-		st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+		require.Equal(t, `{"foo":"bar"}`, string(body)[:13])
 	}
 }
 
@@ -312,14 +312,14 @@ func TestMockPersistTimes(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		res, err := g.Client().Get("http://127.0.0.1:1234/bar")
 		if i == 4 {
-			st.Reject(t, err, nil)
+			require.Error(t, err)
 			break
 		}
 
-		st.Expect(t, err, nil)
-		st.Expect(t, res.StatusCode, 200)
+		require.NoError(t, err)
+		require.Equal(t, 200, res.StatusCode)
 		body, _ := io.ReadAll(res.Body)
-		st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+		require.Equal(t, `{"foo":"bar"}`, string(body)[:13])
 	}
 }
 
@@ -328,13 +328,13 @@ func TestUnmatched(t *testing.T) {
 	defer g.Off()
 
 	_, err := g.Client().Get("http://server.com/unmatched")
-	st.Reject(t, err, nil)
+	require.Error(t, err)
 
 	unmatched := g.GetUnmatchedRequests()
-	st.Expect(t, len(unmatched), 1)
-	st.Expect(t, unmatched[0].URL.Host, "server.com")
-	st.Expect(t, unmatched[0].URL.Path, "/unmatched")
-	st.Expect(t, g.HasUnmatchedRequests(), true)
+	require.Equal(t, 1, len(unmatched))
+	require.Equal(t, "server.com", unmatched[0].URL.Host)
+	require.Equal(t, "/unmatched", unmatched[0].URL.Path)
+	require.True(t, g.HasUnmatchedRequests())
 }
 
 func TestMultipleMocks(t *testing.T) {
@@ -367,14 +367,14 @@ func TestMultipleMocks(t *testing.T) {
 	client := g.Client()
 	for _, test := range tests {
 		res, err := client.Get("http://server.com" + test.path)
-		st.Expect(t, err, nil)
-		st.Expect(t, res.StatusCode, 200)
+		require.NoError(t, err)
+		require.Equal(t, 200, res.StatusCode)
 		body, _ := io.ReadAll(res.Body)
-		st.Expect(t, string(body)[:15], `{"value":"`+test.path[1:]+`"}`)
+		require.Equal(t, `{"value":"`+test.path[1:]+`"}`, string(body)[:15])
 	}
 
 	_, err := client.Get("http://server.com/foo")
-	st.Reject(t, err, nil)
+	require.Error(t, err)
 }
 
 func TestCustomClient(t *testing.T) {
@@ -382,15 +382,15 @@ func TestCustomClient(t *testing.T) {
 	defer g.Off()
 
 	g.New("http://foo.com").Reply(204)
-	st.Expect(t, len(g.GetAll()), 1)
+	require.Equal(t, 1, len(g.GetAll()))
 
 	req, err := http.NewRequest("GET", "http://foo.com", nil)
-	st.Expect(t, err, nil)
+	require.NoError(t, err)
 	client := &http.Client{Transport: g}
 
 	res, err := client.Do(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 204)
+	require.NoError(t, err)
+	require.Equal(t, 204, res.StatusCode)
 }
 
 func TestInstrumentDefaultClient(t *testing.T) {
@@ -399,15 +399,15 @@ func TestInstrumentDefaultClient(t *testing.T) {
 
 	prev := http.DefaultClient.Transport
 	g.InstrumentDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g))
+	require.Equal(t, http.RoundTripper(g), http.DefaultClient.Transport)
 
 	g.New("http://foo.com").Reply(204)
 	res, err := http.Get("http://foo.com")
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 204)
+	require.NoError(t, err)
+	require.Equal(t, 204, res.StatusCode)
 
 	g.RestoreDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, prev)
+	require.Equal(t, prev, http.DefaultClient.Transport)
 }
 
 // TestRestoreDefaultClientDoesNotClobberOthers covers a misuse of the
@@ -425,18 +425,18 @@ func TestRestoreDefaultClientDoesNotClobberOthers(t *testing.T) {
 
 	g1.InstrumentDefaultClient()
 	g2.InstrumentDefaultClient() // overlay: saves g1 as its prev
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g2))
+	require.Equal(t, http.RoundTripper(g2), http.DefaultClient.Transport)
 
 	// Out-of-order restore: g1 is not current, must not clobber g2.
 	g1.RestoreDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g2))
+	require.Equal(t, http.RoundTripper(g2), http.DefaultClient.Transport)
 
 	// LIFO finishes the unwind.
 	g2.RestoreDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g1))
+	require.Equal(t, http.RoundTripper(g1), http.DefaultClient.Transport)
 
 	g1.RestoreDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, prev)
+	require.Equal(t, prev, http.DefaultClient.Transport)
 }
 
 func TestOffRestoresDefaultClient(t *testing.T) {
@@ -444,9 +444,9 @@ func TestOffRestoresDefaultClient(t *testing.T) {
 	defer g.RestoreDefaultClient() // safety net if assertions fail mid-test
 	prev := http.DefaultClient.Transport
 	g.InstrumentDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g))
+	require.Equal(t, http.RoundTripper(g), http.DefaultClient.Transport)
 	g.Off()
-	st.Expect(t, http.DefaultClient.Transport, prev)
+	require.Equal(t, prev, http.DefaultClient.Transport)
 }
 
 func TestMockRegExpMatching(t *testing.T) {
@@ -464,12 +464,12 @@ func TestMockRegExpMatching(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer s3cr3t")
 
 	res, err := g.Client().Do(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 200)
-	st.Expect(t, res.Header.Get("Server"), "pgock")
+	require.NoError(t, err)
+	require.Equal(t, 200, res.StatusCode)
+	require.Equal(t, "pgock", res.Header.Get("Server"))
 
 	body, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(body)[:13], `{"foo":"bar"}`)
+	require.Equal(t, `{"foo":"bar"}`, string(body)[:13])
 }
 
 func TestObserve(t *testing.T) {
@@ -486,8 +486,8 @@ func TestObserve(t *testing.T) {
 
 	_, _ = g.Client().Do(req)
 
-	st.Expect(t, observedRequest.Host, "observe-foo.com")
-	st.Expect(t, observedMock.Request().URLStruct.Host, "observe-foo.com")
+	require.Equal(t, "observe-foo.com", observedRequest.Host)
+	require.Equal(t, "observe-foo.com", observedMock.Request().URLStruct.Host)
 }
 
 func TestTryCreatingRacesInNew(t *testing.T) {
@@ -530,8 +530,8 @@ func TestConcurrentRoundTripsRespectCounter(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	st.Expect(t, int(hits), 1)
-	st.Expect(t, int(misses), n-1)
+	require.Equal(t, 1, int(hits))
+	require.Equal(t, n-1, int(misses))
 }
 
 // TestParallelTransports demonstrates the headline property of the redesign:
@@ -549,12 +549,12 @@ func TestParallelTransports(t *testing.T) {
 			g.New(host).Reply(200).BodyString(fmt.Sprintf("hello %d", i))
 
 			res, err := g.Client().Get(host)
-			st.Expect(t, err, nil)
-			st.Expect(t, res.StatusCode, 200)
+			require.NoError(t, err)
+			require.Equal(t, 200, res.StatusCode)
 			body, _ := io.ReadAll(res.Body)
-			st.Expect(t, string(body), fmt.Sprintf("hello %d", i))
+			require.Equal(t, fmt.Sprintf("hello %d", i), string(body))
 
-			st.Expect(t, g.IsDone(), true)
+			require.True(t, g.IsDone())
 		})
 	}
 }
@@ -591,8 +591,8 @@ func TestMatcherCanReenterTransport(t *testing.T) {
 
 	select {
 	case <-done:
-		st.Expect(t, err, nil)
-		st.Expect(t, res.StatusCode, 200)
+		require.NoError(t, err)
+		require.Equal(t, 200, res.StatusCode)
 	case <-time.After(5 * time.Second):
 		t.Fatal("RoundTrip deadlocked: a matcher re-entered the Transport")
 	}
@@ -611,9 +611,9 @@ func TestMatcherErrorNotTrackedAsUnmatched(t *testing.T) {
 		Reply(200)
 
 	_, err := g.Client().Get("http://err.example")
-	st.Reject(t, err, nil)
-	st.Expect(t, g.HasUnmatchedRequests(), false)
-	st.Expect(t, len(g.GetUnmatchedRequests()), 0)
+	require.Error(t, err)
+	require.False(t, g.HasUnmatchedRequests())
+	require.Equal(t, 0, len(g.GetUnmatchedRequests()))
 }
 
 // TestEnableNetworkingWithCustomClient verifies that real-network fallback is
@@ -640,9 +640,9 @@ func TestEnableNetworkingWithCustomClient(t *testing.T) {
 	// No mock is registered, so the request falls through to the network,
 	// which must be the custom client's transport (status 299 is its tell).
 	res, err := g.Client().Get("http://custom.example")
-	st.Expect(t, err, nil)
-	st.Expect(t, int(atomic.LoadInt32(&used)), 1)
-	st.Expect(t, res.StatusCode, 299)
+	require.NoError(t, err)
+	require.Equal(t, 1, int(atomic.LoadInt32(&used)))
+	require.Equal(t, 299, res.StatusCode)
 }
 
 // TestNewAfterOffFailsLoudly guards the disabled-transport semantics: a mock
@@ -660,8 +660,8 @@ func TestNewAfterOffFailsLoudly(t *testing.T) {
 	g.New(ts.URL).Reply(204)
 
 	_, err := g.Client().Get(ts.URL)
-	st.Expect(t, errors.Is(err, ErrTransportDisabled), true)
-	st.Expect(t, int(atomic.LoadInt32(&hits)), 0)
+	require.True(t, errors.Is(err, ErrTransportDisabled))
+	require.Equal(t, 0, int(atomic.LoadInt32(&hits)))
 }
 
 // TestMatchParamInvalidRegexErrors verifies that an invalid regular expression
@@ -673,10 +673,10 @@ func TestMatchParamInvalidRegexErrors(t *testing.T) {
 	g.New("http://foo.com").MatchParam("q", "(unclosed").Reply(200)
 
 	_, err := g.Client().Get("http://foo.com?q=value")
-	st.Reject(t, err, nil)
-	st.Expect(t, strings.Contains(err.Error(), "error parsing regexp"), true)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "error parsing regexp"))
 	// An errored match is distinct from "no mock matched".
-	st.Expect(t, g.HasUnmatchedRequests(), false)
+	require.False(t, g.HasUnmatchedRequests())
 }
 
 // TestMockTimesZeroNeverMatches: a Times(0) mock is already exhausted, so it
@@ -689,9 +689,9 @@ func TestMockTimesZeroNeverMatches(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		_, err := g.Client().Get("http://foo.com")
-		st.Expect(t, errors.Is(err, ErrCannotMatch), true)
+		require.True(t, errors.Is(err, ErrCannotMatch))
 	}
-	st.Expect(t, g.IsDone(), true)
+	require.True(t, g.IsDone())
 }
 
 // TestMockBodyExpectationWithNoRequestBody: a bodyless request against a mock
@@ -702,7 +702,7 @@ func TestMockBodyExpectationWithNoRequestBody(t *testing.T) {
 	g.New("http://foo.com").BodyString("expected").Reply(200)
 
 	_, err := g.Client().Get("http://foo.com")
-	st.Expect(t, errors.Is(err, ErrCannotMatch), true)
+	require.True(t, errors.Is(err, ErrCannotMatch))
 }
 
 // TestNetworkFallbackPreservesCompressedBody verifies that matching a mock
@@ -739,9 +739,9 @@ func TestNetworkFallbackPreservesCompressedBody(t *testing.T) {
 	req.Header.Set("Content-Type", "text/plain")
 
 	res, err := g.Client().Do(req)
-	st.Expect(t, err, nil)
-	st.Expect(t, res.StatusCode, 200) // served by the fallback, not the mock
-	st.Expect(t, bytes.Equal(received, wire), true)
+	require.NoError(t, err)
+	require.Equal(t, 200, res.StatusCode) // served by the fallback, not the mock
+	require.True(t, bytes.Equal(received, wire))
 }
 
 // closeTrackingBody records whether Close was called on it.
@@ -774,10 +774,10 @@ func TestNetworkedMockClosesReplacedBody(t *testing.T) {
 	g.New("http://networked.example").Reply(200).BodyString("mock body").EnableNetworking()
 
 	res, err := g.Client().Get("http://networked.example")
-	st.Expect(t, err, nil)
+	require.NoError(t, err)
 	out, _ := io.ReadAll(res.Body)
-	st.Expect(t, string(out), "mock body")
-	st.Expect(t, body.closed, true)
+	require.Equal(t, "mock body", string(out))
+	require.True(t, body.closed)
 }
 
 // TestInstrumentDefaultClientReinstrumentsAfterOverlay verifies that a no-op
@@ -791,14 +791,14 @@ func TestInstrumentDefaultClientReinstrumentsAfterOverlay(t *testing.T) {
 
 	g1.InstrumentDefaultClient()
 	g2.InstrumentDefaultClient() // overlay g1
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g2))
+	require.Equal(t, http.RoundTripper(g2), http.DefaultClient.Transport)
 
 	// Off() calls RestoreDefaultClient, which no-ops because g2 is current.
 	g1.Off()
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g2))
+	require.Equal(t, http.RoundTripper(g2), http.DefaultClient.Transport)
 
 	// Re-instrumenting g1 must actually re-install it. Before the fix the
 	// sticky instrumented flag made this a silent no-op.
 	g1.InstrumentDefaultClient()
-	st.Expect(t, http.DefaultClient.Transport, http.RoundTripper(g1))
+	require.Equal(t, http.RoundTripper(g1), http.DefaultClient.Transport)
 }

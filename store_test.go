@@ -3,93 +3,93 @@ package pgock
 import (
 	"testing"
 
-	"github.com/nbio/st"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStoreRegister(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
-	st.Expect(t, len(g.mocks), 0)
+	require.Equal(t, 0, len(g.mocks))
 	mock := g.New("foo").Mock
 	g.Register(mock)
-	st.Expect(t, len(g.mocks), 1)
-	st.Expect(t, mock.Request().Mock, mock)
-	st.Expect(t, mock.Response().Mock, mock)
+	require.Equal(t, 1, len(g.mocks))
+	require.Equal(t, mock, mock.Request().Mock)
+	require.Equal(t, mock, mock.Response().Mock)
 }
 
 func TestStoreGetAll(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
-	st.Expect(t, len(g.mocks), 0)
+	require.Equal(t, 0, len(g.mocks))
 	mock := g.New("foo").Mock
 	store := g.GetAll()
-	st.Expect(t, len(g.mocks), 1)
-	st.Expect(t, len(store), 1)
-	st.Expect(t, store[0], mock)
+	require.Equal(t, 1, len(g.mocks))
+	require.Equal(t, 1, len(store))
+	require.Equal(t, mock, store[0])
 }
 
 func TestStoreExists(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
-	st.Expect(t, len(g.mocks), 0)
+	require.Equal(t, 0, len(g.mocks))
 	mock := g.New("foo").Mock
-	st.Expect(t, len(g.mocks), 1)
-	st.Expect(t, g.Exists(mock), true)
+	require.Equal(t, 1, len(g.mocks))
+	require.True(t, g.Exists(mock))
 }
 
 func TestStorePending(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
 	g.New("foo")
-	st.Expect(t, g.mocks, g.Pending())
+	require.Equal(t, g.Pending(), g.mocks)
 }
 
 func TestStoreIsPending(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
 	g.New("foo")
-	st.Expect(t, g.IsPending(), true)
+	require.True(t, g.IsPending())
 	g.Flush()
-	st.Expect(t, g.IsPending(), false)
+	require.False(t, g.IsPending())
 }
 
 func TestStoreIsDone(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
 	g.New("foo")
-	st.Expect(t, g.IsDone(), false)
+	require.False(t, g.IsDone())
 	g.Flush()
-	st.Expect(t, g.IsDone(), true)
+	require.True(t, g.IsDone())
 }
 
 func TestStoreRemove(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
-	st.Expect(t, len(g.mocks), 0)
+	require.Equal(t, 0, len(g.mocks))
 	mock := g.New("foo").Mock
-	st.Expect(t, len(g.mocks), 1)
-	st.Expect(t, g.Exists(mock), true)
+	require.Equal(t, 1, len(g.mocks))
+	require.True(t, g.Exists(mock))
 
 	g.Remove(mock)
-	st.Expect(t, g.Exists(mock), false)
+	require.False(t, g.Exists(mock))
 
 	g.Remove(mock)
-	st.Expect(t, g.Exists(mock), false)
+	require.False(t, g.Exists(mock))
 }
 
 func TestStoreFlush(t *testing.T) {
 	g := NewTransport()
 	defer g.Off()
-	st.Expect(t, len(g.mocks), 0)
+	require.Equal(t, 0, len(g.mocks))
 
 	mock1 := g.New("foo").Mock
 	mock2 := g.New("foo").Mock
-	st.Expect(t, len(g.mocks), 2)
-	st.Expect(t, g.Exists(mock1), true)
-	st.Expect(t, g.Exists(mock2), true)
+	require.Equal(t, 2, len(g.mocks))
+	require.True(t, g.Exists(mock1))
+	require.True(t, g.Exists(mock2))
 
 	g.Flush()
-	st.Expect(t, len(g.mocks), 0)
-	st.Expect(t, g.Exists(mock1), false)
-	st.Expect(t, g.Exists(mock2), false)
+	require.Equal(t, 0, len(g.mocks))
+	require.False(t, g.Exists(mock1))
+	require.False(t, g.Exists(mock2))
 }

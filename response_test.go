@@ -8,73 +8,73 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nbio/st"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewResponse(t *testing.T) {
 	res := NewResponse()
 
 	res.Status(200)
-	st.Expect(t, res.StatusCode, 200)
+	require.Equal(t, 200, res.StatusCode)
 
 	res.SetHeader("foo", "bar")
-	st.Expect(t, res.Header.Get("foo"), "bar")
+	require.Equal(t, "bar", res.Header.Get("foo"))
 
 	res.Delay(1000 * time.Millisecond)
-	st.Expect(t, res.ResponseDelay, 1000*time.Millisecond)
+	require.Equal(t, 1000*time.Millisecond, res.ResponseDelay)
 
 	res.EnableNetworking()
-	st.Expect(t, res.UseNetwork, true)
+	require.True(t, res.UseNetwork)
 }
 
 func TestResponseStatus(t *testing.T) {
 	res := NewResponse()
-	st.Expect(t, res.StatusCode, 0)
+	require.Equal(t, 0, res.StatusCode)
 	res.Status(200)
-	st.Expect(t, res.StatusCode, 200)
+	require.Equal(t, 200, res.StatusCode)
 }
 
 func TestResponseType(t *testing.T) {
 	res := NewResponse()
 	res.Type("json")
-	st.Expect(t, res.Header.Get("Content-Type"), "application/json")
+	require.Equal(t, "application/json", res.Header.Get("Content-Type"))
 
 	res = NewResponse()
 	res.Type("xml")
-	st.Expect(t, res.Header.Get("Content-Type"), "application/xml")
+	require.Equal(t, "application/xml", res.Header.Get("Content-Type"))
 
 	res = NewResponse()
 	res.Type("foo/bar")
-	st.Expect(t, res.Header.Get("Content-Type"), "foo/bar")
+	require.Equal(t, "foo/bar", res.Header.Get("Content-Type"))
 }
 
 func TestResponseSetHeader(t *testing.T) {
 	res := NewResponse()
 	res.SetHeader("foo", "bar")
 	res.SetHeader("bar", "baz")
-	st.Expect(t, res.Header.Get("foo"), "bar")
-	st.Expect(t, res.Header.Get("bar"), "baz")
+	require.Equal(t, "bar", res.Header.Get("foo"))
+	require.Equal(t, "baz", res.Header.Get("bar"))
 }
 
 func TestResponseAddHeader(t *testing.T) {
 	res := NewResponse()
 	res.AddHeader("foo", "bar")
 	res.AddHeader("foo", "baz")
-	st.Expect(t, res.Header.Get("foo"), "bar")
-	st.Expect(t, res.Header["Foo"][1], "baz")
+	require.Equal(t, "bar", res.Header.Get("foo"))
+	require.Equal(t, "baz", res.Header["Foo"][1])
 }
 
 func TestResponseSetHeaders(t *testing.T) {
 	res := NewResponse()
 	res.SetHeaders(map[string]string{"foo": "bar", "bar": "baz"})
-	st.Expect(t, res.Header.Get("foo"), "bar")
-	st.Expect(t, res.Header.Get("bar"), "baz")
+	require.Equal(t, "bar", res.Header.Get("foo"))
+	require.Equal(t, "baz", res.Header.Get("bar"))
 }
 
 func TestResponseBody(t *testing.T) {
 	res := NewResponse()
 	res.Body(bytes.NewBuffer([]byte("foo bar")))
-	st.Expect(t, string(res.BodyBuffer), "foo bar")
+	require.Equal(t, "foo bar", string(res.BodyBuffer))
 }
 
 func TestResponseBodyGenerator(t *testing.T) {
@@ -84,27 +84,27 @@ func TestResponseBodyGenerator(t *testing.T) {
 	}
 	res.BodyGenerator(generator)
 	bytes, err := io.ReadAll(res.BodyGen())
-	st.Expect(t, err, nil)
-	st.Expect(t, string(bytes), "foo bar")
+	require.NoError(t, err)
+	require.Equal(t, "foo bar", string(bytes))
 }
 
 func TestResponseBodyString(t *testing.T) {
 	res := NewResponse()
 	res.BodyString("foo bar")
-	st.Expect(t, string(res.BodyBuffer), "foo bar")
+	require.Equal(t, "foo bar", string(res.BodyBuffer))
 }
 
 func TestResponseFile(t *testing.T) {
 	res := NewResponse()
 	res.File("pgock.go")
-	st.Expect(t, string(res.BodyBuffer)[:13], "package pgock")
+	require.Equal(t, "package pgock", string(res.BodyBuffer)[:13])
 }
 
 func TestResponseJSON(t *testing.T) {
 	res := NewResponse()
 	res.JSON(map[string]string{"foo": "bar"})
-	st.Expect(t, string(res.BodyBuffer)[:13], `{"foo":"bar"}`)
-	st.Expect(t, res.Header.Get("Content-Type"), "application/json")
+	require.Equal(t, `{"foo":"bar"}`, string(res.BodyBuffer)[:13])
+	require.Equal(t, "application/json", res.Header.Get("Content-Type"))
 }
 
 func TestResponseXML(t *testing.T) {
@@ -113,53 +113,53 @@ func TestResponseXML(t *testing.T) {
 		Data string `xml:"data"`
 	}
 	res.XML(xml{Data: "foo"})
-	st.Expect(t, string(res.BodyBuffer), `<xml><data>foo</data></xml>`)
-	st.Expect(t, res.Header.Get("Content-Type"), "application/xml")
+	require.Equal(t, `<xml><data>foo</data></xml>`, string(res.BodyBuffer))
+	require.Equal(t, "application/xml", res.Header.Get("Content-Type"))
 }
 
 func TestResponseMap(t *testing.T) {
 	res := NewResponse()
-	st.Expect(t, len(res.Mappers), 0)
+	require.Equal(t, 0, len(res.Mappers))
 	res.Map(func(res *http.Response) *http.Response {
 		return res
 	})
-	st.Expect(t, len(res.Mappers), 1)
+	require.Equal(t, 1, len(res.Mappers))
 }
 
 func TestResponseFilter(t *testing.T) {
 	res := NewResponse()
-	st.Expect(t, len(res.Filters), 0)
+	require.Equal(t, 0, len(res.Filters))
 	res.Filter(func(res *http.Response) bool {
 		return true
 	})
-	st.Expect(t, len(res.Filters), 1)
+	require.Equal(t, 1, len(res.Filters))
 }
 
 func TestResponseSetError(t *testing.T) {
 	res := NewResponse()
-	st.Expect(t, res.Error, nil)
+	require.NoError(t, res.Error)
 	res.SetError(errors.New("foo error"))
-	st.Expect(t, res.Error.Error(), "foo error")
+	require.Equal(t, "foo error", res.Error.Error())
 }
 
 func TestResponseDelay(t *testing.T) {
 	res := NewResponse()
-	st.Expect(t, res.ResponseDelay, 0*time.Microsecond)
+	require.Equal(t, 0*time.Microsecond, res.ResponseDelay)
 	res.Delay(100 * time.Millisecond)
-	st.Expect(t, res.ResponseDelay, 100*time.Millisecond)
+	require.Equal(t, 100*time.Millisecond, res.ResponseDelay)
 }
 
 func TestResponseEnableNetworking(t *testing.T) {
 	res := NewResponse()
-	st.Expect(t, res.UseNetwork, false)
+	require.False(t, res.UseNetwork)
 	res.EnableNetworking()
-	st.Expect(t, res.UseNetwork, true)
+	require.True(t, res.UseNetwork)
 }
 
 func TestResponseDone(t *testing.T) {
 	res := NewResponse()
 	res.Mock = &Mocker{request: &Request{Counter: 1}, disabler: new(disabler)}
-	st.Expect(t, res.Done(), false)
+	require.False(t, res.Done())
 	res.Mock.Disable()
-	st.Expect(t, res.Done(), true)
+	require.True(t, res.Done())
 }

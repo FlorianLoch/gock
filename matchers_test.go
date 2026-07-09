@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/nbio/st"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMatchMethod(t *testing.T) {
@@ -25,8 +25,8 @@ func TestMatchMethod(t *testing.T) {
 		req := &http.Request{Method: test.method}
 		ereq := &Request{Method: test.value}
 		matches, err := MatchMethod(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
 
@@ -47,8 +47,8 @@ func TestMatchScheme(t *testing.T) {
 		req := &http.Request{URL: &url.URL{Scheme: test.scheme}}
 		ereq := &Request{URLStruct: &url.URL{Scheme: test.value}}
 		matches, err := MatchScheme(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
 
@@ -75,12 +75,12 @@ func TestMatchHost(t *testing.T) {
 		req := &http.Request{URL: &url.URL{Host: test.url}}
 		ereq := &Request{URLStruct: &url.URL{Host: test.value}}
 		matches, err := MatchHost(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 		ereq.WithOptions(Options{DisableRegexpHost: true})
 		matches, err = MatchHost(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matchesNonRegexp)
+		require.NoError(t, err)
+		require.Equal(t, test.matchesNonRegexp, matches)
 	}
 }
 
@@ -108,8 +108,8 @@ func TestMatchPath(t *testing.T) {
 		req := &http.Request{URL: u}
 		ereq := &Request{URLStruct: mu}
 		matches, err := MatchPath(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
 
@@ -137,8 +137,8 @@ func TestMatchHeaders(t *testing.T) {
 		req := &http.Request{Header: test.headers}
 		ereq := &Request{Header: test.values}
 		matches, err := MatchHeaders(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
 
@@ -165,8 +165,8 @@ func TestMatchQueryParams(t *testing.T) {
 		req := &http.Request{URL: u}
 		ereq := &Request{URLStruct: mu}
 		matches, err := MatchQueryParams(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
 
@@ -192,8 +192,8 @@ func TestMatchPathParams(t *testing.T) {
 			PathParams: map[string]string{test.key: test.value},
 		}
 		matches, err := MatchPathParams(req, ereq)
-		st.Expect(t, err, nil, i)
-		st.Expect(t, matches, test.matches, i)
+		require.NoError(t, err, i)
+		require.Equal(t, test.matches, matches, i)
 	}
 }
 
@@ -218,8 +218,8 @@ func TestMatchBody(t *testing.T) {
 		req := &http.Request{Body: createReadCloser([]byte(test.body))}
 		ereq := &Request{BodyBuffer: []byte(test.value)}
 		matches, err := MatchBody(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
 
@@ -245,7 +245,7 @@ func TestMatchBody_MatchType(t *testing.T) {
 		}
 		ereq := NewRequest().BodyString(test.body).MatchType(test.customBodyType)
 		matches, err := MatchBody(req, ereq)
-		st.Expect(t, err, nil)
-		st.Expect(t, matches, test.matches)
+		require.NoError(t, err)
+		require.Equal(t, test.matches, matches)
 	}
 }
